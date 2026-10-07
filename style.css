@@ -1,0 +1,169 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    color: #111827;
+}
+
+/* Header */
+
+.header {
+    background: #111827;
+    color: white;
+    padding: 20px 7%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 26px;
+    font-weight: bold;
+}
+
+.logo span {
+    color: #4f8cff;
+}
+
+.header p {
+    color: #cbd5e1;
+}
+
+/* Hero */
+
+.hero {
+    background: white;
+    padding: 50px 7%;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.hero h1 {
+    font-size: 40px;
+    margin-bottom: 10px;
+}
+
+.hero p {
+    color: #64748b;
+    font-size: 16px;
+}
+
+/* Gallery */
+
+.gallery-section {
+    padding: 40px 7%;
+}
+
+.section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.section-title h2 {
+    font-size: 28px;
+}
+
+#photoCount {
+    color: #64748b;
+}
+
+/* Grid */
+
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 22px;
+}
+
+/* Card */
+
+.photo-card {
+    background: white;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: 0.25s;
+}
+
+.photo-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+}
+
+.photo-card img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    display: block;
+}
+
+.photo-info {
+    padding: 15px;
+}
+
+.photo-info h3 {
+    font-size: 17px;
+    margin-bottom: 5px;
+}
+
+.photo-info p {
+    color: #64748b;
+    font-size: 13px;
+}
+
+/* Footer */
+
+footer {
+    margin-top: 50px;
+    padding: 25px;
+    text-align: center;
+    background: #111827;
+    color: #94a3b8;
+}
+
+/* Mobile */
+
+@media (max-width: 600px) {
+
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .hero {
+        padding: 40px 6%;
+    }
+
+    .hero h1 {
+        font-size: 32px;
+    }
+
+    .gallery-section {
+        padding: 30px 6%;
+    }
+
+    .gallery {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .photo-card img {
+        height: 180px;
+    }
+
+    .photo-info {
+        padding: 10px;
+    }
+
+    .photo-info h3 {
+        font-size: 14px;
+    }
+}
