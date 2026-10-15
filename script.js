@@ -2,18 +2,6 @@ const photos = [
 
     {
         file: "IMG_20261015_203337.jpg",
-        title: "Study Notes 01",
-        subject: "Study Material"
-    },
-
-    {
-        file: "IMG_20261015_203337.jpg",
-        title: "Study Notes 02",
-        subject: "Study Material"
-    },
-
-    {
-        file: "IMG_20261015_203337.jpg",
         title: "Study Notes 03",
         subject: "Study Material"
     }
