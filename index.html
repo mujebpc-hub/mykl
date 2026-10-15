@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#080b12">
 
-    <title>My Study Notes</title>
+    <title>StudyHub | Video Library</title>
 
     <link rel="stylesheet" href="style.css">
 </head>
@@ -12,38 +13,222 @@
 <body>
 
     <header class="header">
-        <div class="logo">Study<span>Hub</span></div>
+        <a class="brand" href="#" aria-label="StudyHub Home">
+            <span class="brand-icon">S</span>
+            <span>Study<span class="brand-accent">Hub</span></span>
+        </a>
 
-        <p>My Study Photos & Notes</p>
+        <nav class="header-nav" aria-label="Main navigation">
+            <a href="#videos">Videos</a>
+            <a href="#photos">Study Photos</a>
+        </nav>
+
+        <div class="header-status">
+            <span class="status-dot"></span>
+            Your learning space
+        </div>
     </header>
-
 
     <main>
 
         <section class="hero">
-            <h1>My Study Collection</h1>
-            <p>Important notes, diagrams, formulas and study material.</p>
-        </section>
+            <div class="hero-content">
+                <span class="eyebrow">
+                    YOUR PERSONAL LEARNING LIBRARY
+                </span>
 
+                <h1>Learn at your <span>own pace.</span></h1>
 
-        <section class="gallery-section">
+                <p>
+                    Your videos, study notes and learning resources,
+                    all in one place.
+                </p>
 
-            <div class="section-title">
-                <h2>Study Photos</h2>
-                <span id="photoCount"></span>
+                <a class="primary-button" href="#videos">
+                    <span aria-hidden="true">▶</span>
+                    Explore videos
+                </a>
+
+                <div class="hero-stats">
+                    <div>
+                        <strong id="videoCount">0</strong>
+                        <span>Videos</span>
+                    </div>
+
+                    <div class="stat-divider"></div>
+
+                    <div>
+                        <strong id="photoCount">0</strong>
+                        <span>Study photos</span>
+                    </div>
+                </div>
             </div>
 
-            <div id="gallery" class="gallery"></div>
+            <div class="hero-art" aria-hidden="true">
+                <div class="art-glow"></div>
+                <div class="art-card">
+                    <div class="art-top">
+                        <span class="art-dot"></span>
+                        <span class="art-dot"></span>
+                        <span class="art-dot"></span>
+                    </div>
+                    <div class="art-play">▶</div>
+                    <div class="art-lines">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <div class="art-label">STUDY • WATCH • GROW</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="library-section" id="videos">
+
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">WATCH & LEARN</span>
+                    <h2>Video library</h2>
+                    <p class="section-description">
+                        Select a video to start watching.
+                    </p>
+                </div>
+
+                <label class="search-box">
+                    <span aria-hidden="true">⌕</span>
+                    <input
+                        id="searchInput"
+                        type="search"
+                        placeholder="Search your library..."
+                        aria-label="Search videos and photos"
+                        autocomplete="off"
+                    >
+                </label>
+            </div>
+
+            <div id="videoGrid" class="media-grid">
+                <div class="empty-state">
+                    <div class="empty-icon">▶</div>
+                    <h3>Your video library is ready</h3>
+                    <p>Add video details in script.js to display your videos here.</p>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="library-section photos-section" id="photos">
+
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">YOUR STUDY MATERIAL</span>
+                    <h2>Study photos & notes</h2>
+                    <p class="section-description">
+                        Open your saved diagrams, formulas and notes.
+                    </p>
+                </div>
+
+                <span class="count-pill" id="photoCountLabel">
+                    0 photos
+                </span>
+            </div>
+
+            <div id="gallery" class="media-grid photo-grid">
+                <div class="empty-state">
+                    <div class="empty-icon">▧</div>
+                    <h3>No photos found</h3>
+                    <p>Your study photos will appear here.</p>
+                </div>
+            </div>
 
         </section>
 
     </main>
 
+    <footer class="footer">
+        <a class="brand footer-brand" href="#">
+            <span class="brand-icon">S</span>
+            <span>Study<span class="brand-accent">Hub</span></span>
+        </a>
 
-    <footer>
-        <p>© 2026 StudyHub • Learning & Notes</p>
+        <p>© 2026 StudyHub · Made for learning</p>
+
+        <a href="#top" id="backToTop">Back to top ↑</a>
     </footer>
 
+    <!-- Video player -->
+    <div
+        id="playerModal"
+        class="player-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="playerTitle"
+        hidden
+    >
+        <div class="player-shell">
+
+            <div class="player-header">
+                <div class="player-heading">
+                    <span class="eyebrow">NOW PLAYING</span>
+                    <h2 id="playerTitle">Video title</h2>
+                    <p id="playerSubject"></p>
+                </div>
+
+                <button
+                    type="button"
+                    id="closePlayer"
+                    class="icon-button"
+                    aria-label="Close player"
+                    title="Close (Escape)"
+                >✕</button>
+            </div>
+
+            <div class="video-stage" id="videoStage">
+                <video
+                    id="videoPlayer"
+                    controls
+                    playsinline
+                    preload="metadata"
+                    tabindex="0"
+                >
+                    Your browser does not support HTML video.
+                </video>
+            </div>
+
+            <div class="player-toolbar">
+                <span id="playbackStatus" class="playback-status">
+                    Ready to play
+                </span>
+
+                <div class="player-actions">
+                    <label class="speed-control">
+                        <span>Speed</span>
+                        <select id="playbackSpeed" aria-label="Playback speed">
+                            <option value="0.5">0.5×</option>
+                            <option value="0.75">0.75×</option>
+                            <option value="1" selected>1×</option>
+                            <option value="1.25">1.25×</option>
+                            <option value="1.5">1.5×</option>
+                            <option value="2">2×</option>
+                        </select>
+                    </label>
+
+                    <button
+                        type="button"
+                        id="fullscreenButton"
+                        class="secondary-button"
+                    >⛶ Fullscreen</button>
+                </div>
+            </div>
+
+            <p class="player-help">
+                TV remote: use arrow keys to navigate, Enter to select,
+                and Back or Escape to close.
+            </p>
+
+        </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script src="script.js"></script>
 
