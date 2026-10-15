@@ -1,7 +1,7 @@
 const photos = [
 
     {
-        file: "study/image/IMG_20261015_203337.jpg",
+        file: "IMG_20261015_203337.jpg",
         title: "Study Notes 03",
         subject: "Study Material"
     }
