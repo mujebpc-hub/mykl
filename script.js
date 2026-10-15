@@ -1,16 +1,8 @@
 "use strict";
 
-/*
-  STUDYHUB MEDIA CONFIGURATION
-
-  Photos:
-  study/image/IMG_20261015_203337.jpg
-
-  Videos:
-  study/videos/your-video.mp4
-
-  GitHub filenames are case-sensitive.
-*/
+/* =========================================
+   STUDYHUB CONFIGURATION
+========================================= */
 
 const photos = [
     {
@@ -21,34 +13,37 @@ const photos = [
 ];
 
 /*
-  Apni videos yahan add karo.
+  VIDEO OPTIONS
 
-  Example:
-  {
-      file: "lesson-01.mp4",
-      title: "Introduction to Mechanics",
-      subject: "Mechanical Engineering",
-      description: "Introduction to basic concepts",
-      thumbnail: "lesson-01.jpg"
-  }
+  Google Drive:
+  driveLink: "https://drive.google.com/file/d/FILE_ID/view"
 
-  Video path:
-  study/videos/lesson-01.mp4
+  GitHub:
+  file: "lesson-01.mp4"
 
-  Thumbnail optional hai:
-  study/thumbnails/lesson-01.jpg
-
-  Example ko tabhi uncomment karke use karo jab
-  tumne apni actual video aur thumbnail upload kar di ho.
+  GitHub video folder:
+  study/videos/
 */
 
 const videos = [
-    // Apni actual video entries yahan add karo.
+    {
+        title: "My First Video",
+        subject: "Study Material",
+        description: "Google Drive video",
+        driveLink: "https://drive.google.com/file/d/PASTE_FILE_ID_HERE/view"
+    }
+
+    // Add more video objects here.
 ];
 
 const IMAGE_FOLDER = "study/image/";
 const VIDEO_FOLDER = "study/videos/";
 const THUMBNAIL_FOLDER = "study/thumbnails/";
+
+
+/* =========================================
+   DOM ELEMENTS
+========================================= */
 
 const gallery = document.getElementById("gallery");
 const videoGrid = document.getElementById("videoGrid");
@@ -74,9 +69,14 @@ let currentVideo = null;
 let playerError = false;
 let lastStatus = "Ready to play";
 
-/* Safe URL creation for local repository assets. */
+
+/* =========================================
+   UTILITIES
+========================================= */
+
 function mediaURL(folder, filename) {
-    return folder + filename.split("/").map(encodeURIComponent).join("/");
+    return folder +
+        filename.split("/").map(encodeURIComponent).join("/");
 }
 
 function showToast(message) {
@@ -106,6 +106,7 @@ function createElement(tag, className, text) {
 
 function createEmptyState(icon, heading, description) {
     const state = createElement("div", "empty-state");
+
     state.append(
         createElement("div", "empty-icon", icon),
         createElement("h3", "", heading),
@@ -115,15 +116,75 @@ function createEmptyState(icon, heading, description) {
     return state;
 }
 
-function createMediaCard({ type, title, subject, description, file, thumbnail }) {
+
+/* =========================================
+   GOOGLE DRIVE LINK CONVERSION
+========================================= */
+
+function getDrivePreviewUrl(link) {
+    try {
+        const url = new URL(link);
+
+        if (
+            url.hostname !== "drive.google.com" &&
+            url.hostname !== "www.drive.google.com"
+        ) {
+            return "";
+        }
+
+        let fileId = "";
+
+        const match = url.pathname.match(/\/file\/d\/([^/]+)/);
+
+        if (match) {
+            fileId = match[1];
+        } else {
+            fileId = url.searchParams.get("id") || "";
+        }
+
+        if (!fileId) {
+            return "";
+        }
+
+        return (
+            "https://drive.google.com/file/d/" +
+            encodeURIComponent(fileId) +
+            "/preview"
+        );
+
+    } catch {
+        return "";
+    }
+}
+
+
+/* =========================================
+   MEDIA CARDS
+========================================= */
+
+function createMediaCard({
+    type,
+    title,
+    subject,
+    description,
+    file,
+    thumbnail
+}) {
     const card = createElement("button", "media-card");
+
     card.type = "button";
-    card.dataset.search = [title, subject, description || ""].join(" ").toLowerCase();
+
+    card.dataset.search = [
+        title,
+        subject || "",
+        description || ""
+    ].join(" ").toLowerCase();
 
     const artwork = createElement("div", "media-artwork");
 
     if (type === "video" && thumbnail) {
         const image = document.createElement("img");
+
         image.src = mediaURL(THUMBNAIL_FOLDER, thumbnail);
         image.alt = "";
         image.loading = "lazy";
@@ -134,24 +195,20 @@ function createMediaCard({ type, title, subject, description, file, thumbnail })
         });
 
         artwork.appendChild(image);
+
     } else if (type === "photo") {
         const image = document.createElement("img");
+
         image.src = mediaURL(IMAGE_FOLDER, file);
         image.alt = title;
         image.loading = "lazy";
 
         image.addEventListener("error", () => {
-            image.alt = "Image could not be loaded";
-            image.classList.add("image-error");
             image.style.display = "none";
 
-            const fallback = createElement(
-                "span",
-                "artwork-symbol",
-                "▧"
+            artwork.appendChild(
+                createElement("span", "artwork-symbol", "▧")
             );
-
-            artwork.appendChild(fallback);
         });
 
         artwork.appendChild(image);
@@ -160,21 +217,27 @@ function createMediaCard({ type, title, subject, description, file, thumbnail })
     if (type === "video") {
         artwork.classList.add("video-artwork");
 
-        const playIcon = createElement("span", "artwork-play", "▶");
-        playIcon.setAttribute("aria-hidden", "true");
-        artwork.appendChild(playIcon);
+        artwork.appendChild(
+            createElement("span", "artwork-play", "▶")
+        );
 
         artwork.appendChild(
             createElement("span", "media-type", "VIDEO")
         );
+
     } else {
         artwork.classList.add("photo-artwork");
     }
 
     const info = createElement("div", "media-info");
+
     info.append(
         createElement("h3", "media-title", title),
-        createElement("p", "media-subject", subject || "Study Material")
+        createElement(
+            "p",
+            "media-subject",
+            subject || "Study Material"
+        )
     );
 
     if (description) {
@@ -187,12 +250,13 @@ function createMediaCard({ type, title, subject, description, file, thumbnail })
 
     if (type === "video") {
         card.setAttribute("aria-label", "Play " + title);
-        card.addEventListener("click", () => openPlayer({
-            file,
-            title,
-            subject,
-            description
-        }));
+
+        card.addEventListener("click", () => {
+            openPlayer({
+                ...arguments[0]
+            });
+        });
+
     } else {
         card.setAttribute("aria-label", "Open photo " + title);
 
@@ -208,13 +272,18 @@ function createMediaCard({ type, title, subject, description, file, thumbnail })
     return card;
 }
 
+
+/* =========================================
+   RENDER VIDEO LIBRARY
+========================================= */
+
 function renderVideos(query = "") {
     videoGrid.innerHTML = "";
 
     const filtered = videos.filter(video => {
         const text = [
             video.title,
-            video.subject,
+            video.subject || "",
             video.description || ""
         ].join(" ").toLowerCase();
 
@@ -227,10 +296,12 @@ function renderVideos(query = "") {
         videoGrid.appendChild(
             createEmptyState(
                 "▶",
-                videos.length ? "No matching videos" : "Your video library is ready",
+                videos.length
+                    ? "No matching videos"
+                    : "Your video library is ready",
                 videos.length
                     ? "Try another search term."
-                    : "Add your video filenames in the videos array in script.js."
+                    : "Add Google Drive links in the videos array in script.js."
             )
         );
 
@@ -247,13 +318,18 @@ function renderVideos(query = "") {
     });
 }
 
+
+/* =========================================
+   RENDER PHOTO GALLERY
+========================================= */
+
 function renderPhotos(query = "") {
     gallery.innerHTML = "";
 
     const filtered = photos.filter(photo => {
         const text = [
             photo.title,
-            photo.subject
+            photo.subject || ""
         ].join(" ").toLowerCase();
 
         return text.includes(query);
@@ -266,8 +342,8 @@ function renderPhotos(query = "") {
         gallery.appendChild(
             createEmptyState(
                 "▧",
-                photos.length ? "No matching photos" : "No photos added",
-                "Try another search or add a photo entry in script.js."
+                "No matching photos",
+                "Try another search term."
             )
         );
 
@@ -291,7 +367,19 @@ function renderLibrary() {
     renderPhotos(query);
 }
 
+
+/* =========================================
+   OPEN VIDEO PLAYER
+========================================= */
+
 function openPlayer(video) {
+    const driveUrl = getDrivePreviewUrl(video.driveLink || "");
+
+    if (!driveUrl && !video.file) {
+        showToast("Invalid Google Drive link or missing video file.");
+        return;
+    }
+
     lastFocusedElement = document.activeElement;
     currentVideo = video;
     playerError = false;
@@ -301,31 +389,71 @@ function openPlayer(video) {
     playerSubject.textContent = video.subject || "Study Material";
     playbackStatus.textContent = lastStatus;
 
+    // Stop and reset the previous video.
     videoPlayer.pause();
     videoPlayer.removeAttribute("src");
     videoPlayer.load();
 
-    videoPlayer.src = mediaURL(VIDEO_FOLDER, video.file);
-    videoPlayer.playbackRate = Number(playbackSpeed.value) || 1;
+    // Remove any previously opened Google Drive player.
+    const oldFrame = videoStage.querySelector(".drive-player");
+
+    if (oldFrame) {
+        oldFrame.remove();
+    }
 
     playerModal.hidden = false;
     document.body.classList.add("player-open");
 
-    videoPlayer.load();
+    if (driveUrl) {
+        // Google Drive requires its embedded preview player.
+        videoPlayer.hidden = true;
 
-    closePlayerButton.focus();
+        const frame = document.createElement("iframe");
 
-    const playPromise = videoPlayer.play();
+        frame.className = "drive-player";
+        frame.src = driveUrl;
+        frame.title = video.title;
 
-    if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch(() => {
-            if (!playerError) {
-                lastStatus = "Press Play to start";
-                playbackStatus.textContent = lastStatus;
-            }
+        frame.allow =
+            "autoplay; fullscreen; picture-in-picture";
+
+        frame.allowFullscreen = true;
+
+        frame.referrerPolicy =
+            "strict-origin-when-cross-origin";
+
+        frame.style.width = "100%";
+        frame.style.height = "100%";
+        frame.style.border = "0";
+
+        videoStage.appendChild(frame);
+
+        playbackStatus.textContent =
+            "Google Drive player ready. Press Play inside the video.";
+
+    } else {
+        // Local GitHub-hosted video.
+        videoPlayer.hidden = false;
+
+        videoPlayer.src = mediaURL(VIDEO_FOLDER, video.file);
+
+        videoPlayer.playbackRate =
+            Number(playbackSpeed.value) || 1;
+
+        videoPlayer.load();
+
+        videoPlayer.play().catch(() => {
+            playbackStatus.textContent = "Press Play to start";
         });
     }
+
+    closePlayerButton.focus();
 }
+
+
+/* =========================================
+   CLOSE VIDEO PLAYER
+========================================= */
 
 function closePlayer() {
     if (playerModal.hidden) {
@@ -336,33 +464,79 @@ function closePlayer() {
     videoPlayer.removeAttribute("src");
     videoPlayer.load();
 
+    const driveFrame = videoStage.querySelector(".drive-player");
+
+    if (driveFrame) {
+        driveFrame.src = "about:blank";
+        driveFrame.remove();
+    }
+
+    videoPlayer.hidden = false;
+
     playerModal.hidden = true;
     document.body.classList.remove("player-open");
 
     currentVideo = null;
     playerError = false;
 
-    if (lastFocusedElement && document.contains(lastFocusedElement)) {
+    if (
+        lastFocusedElement &&
+        document.contains(lastFocusedElement)
+    ) {
         lastFocusedElement.focus();
     }
 }
 
+
+/* =========================================
+   PLAYBACK STATUS
+========================================= */
+
 function updatePlaybackStatus() {
     if (playerError) {
         playbackStatus.textContent = "Video could not be played";
+
     } else if (videoPlayer.ended) {
         playbackStatus.textContent = "Playback finished";
+
     } else if (videoPlayer.paused) {
-        playbackStatus.textContent = videoPlayer.currentTime > 0
-            ? "Paused"
-            : lastStatus;
+        playbackStatus.textContent =
+            videoPlayer.currentTime > 0
+                ? "Paused"
+                : lastStatus;
+
     } else {
         playbackStatus.textContent = "Now playing";
     }
 }
 
+
+/* =========================================
+   FULLSCREEN
+========================================= */
+
 function toggleFullscreen() {
     if (playerModal.hidden) {
+        return;
+    }
+
+    const frame = videoStage.querySelector(".drive-player");
+
+    // Drive has its own player controls.
+    // Its iframe has allowFullscreen enabled.
+    if (frame) {
+        if (frame.requestFullscreen) {
+            frame.requestFullscreen().catch(() => {
+                showToast(
+                    "Use the Google Drive player fullscreen button."
+                );
+            });
+        } else {
+            showToast(
+                "Use the fullscreen control inside the Drive player."
+            );
+        }
+
         return;
     }
 
@@ -374,34 +548,35 @@ function toggleFullscreen() {
         return;
     }
 
-    const target = videoStage;
-
-    if (target.requestFullscreen) {
-        target.requestFullscreen().catch(() => {
+    if (videoStage.requestFullscreen) {
+        videoStage.requestFullscreen().catch(() => {
             showToast("Fullscreen is not supported by this browser.");
         });
+
     } else if (videoPlayer.webkitEnterFullscreen) {
         videoPlayer.webkitEnterFullscreen();
+
     } else {
         showToast("Fullscreen is not supported by this browser.");
     }
 }
 
-/*
-  TV navigation:
-  Arrow keys move focus to the nearest visible focusable element
-  in the requested direction. Native video controls retain their
-  normal browser keyboard behavior.
-*/
+
+/* =========================================
+   TV REMOTE NAVIGATION
+========================================= */
+
 function moveFocus(direction) {
     const candidates = Array.from(
         document.querySelectorAll(
             'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), video[tabindex="0"]'
         )
     ).filter(element => {
-        return element.getClientRects().length > 0 &&
+        return (
+            element.getClientRects().length > 0 &&
             !element.closest("[hidden]") &&
-            element !== document.activeElement;
+            element !== document.activeElement
+        );
     });
 
     const active = document.activeElement;
@@ -412,6 +587,7 @@ function moveFocus(direction) {
     }
 
     const current = active.getBoundingClientRect();
+
     const cx = current.left + current.width / 2;
     const cy = current.top + current.height / 2;
 
@@ -420,6 +596,7 @@ function moveFocus(direction) {
 
     candidates.forEach(element => {
         const rect = element.getBoundingClientRect();
+
         const x = rect.left + rect.width / 2;
         const y = rect.top + rect.height / 2;
 
@@ -432,15 +609,19 @@ function moveFocus(direction) {
         if (direction === "right" && dx > 8) {
             primary = dx;
             secondary = Math.abs(dy);
+
         } else if (direction === "left" && dx < -8) {
             primary = -dx;
             secondary = Math.abs(dy);
+
         } else if (direction === "down" && dy > 8) {
             primary = dy;
             secondary = Math.abs(dx);
+
         } else if (direction === "up" && dy < -8) {
             primary = -dy;
             secondary = Math.abs(dx);
+
         } else {
             return;
         }
@@ -458,13 +639,20 @@ function moveFocus(direction) {
     }
 }
 
+
+/* =========================================
+   EVENT LISTENERS
+========================================= */
+
 searchInput.addEventListener("input", renderLibrary);
 
 closePlayerButton.addEventListener("click", closePlayer);
+
 fullscreenButton.addEventListener("click", toggleFullscreen);
 
 playbackSpeed.addEventListener("change", () => {
-    videoPlayer.playbackRate = Number(playbackSpeed.value) || 1;
+    videoPlayer.playbackRate =
+        Number(playbackSpeed.value) || 1;
 });
 
 videoPlayer.addEventListener("playing", () => {
@@ -473,6 +661,7 @@ videoPlayer.addEventListener("playing", () => {
 });
 
 videoPlayer.addEventListener("pause", updatePlaybackStatus);
+
 videoPlayer.addEventListener("ended", updatePlaybackStatus);
 
 videoPlayer.addEventListener("waiting", () => {
@@ -483,6 +672,7 @@ videoPlayer.addEventListener("waiting", () => {
 
 videoPlayer.addEventListener("error", () => {
     playerError = true;
+
     playbackStatus.textContent =
         "Cannot play this video. Check its path and format.";
 });
@@ -493,19 +683,20 @@ videoPlayer.addEventListener("loadedmetadata", () => {
     updatePlaybackStatus();
 });
 
-/* Close the player if the user clicks the dark backdrop. */
 playerModal.addEventListener("click", event => {
     if (event.target === playerModal) {
         closePlayer();
     }
 });
 
-/* Keyboard and TV remote controls. */
 document.addEventListener("keydown", event => {
     const isOpen = !playerModal.hidden;
     const active = document.activeElement;
 
-    if (event.key === "Escape" || event.key === "Backspace") {
+    if (
+        event.key === "Escape" ||
+        event.key === "Backspace"
+    ) {
         if (isOpen) {
             event.preventDefault();
             closePlayer();
@@ -513,7 +704,11 @@ document.addEventListener("keydown", event => {
         }
     }
 
-    if (isOpen && event.key === "MediaPlayPause") {
+    if (
+        isOpen &&
+        event.key === "MediaPlayPause" &&
+        !videoPlayer.hidden
+    ) {
         event.preventDefault();
 
         if (videoPlayer.paused) {
@@ -525,10 +720,6 @@ document.addEventListener("keydown", event => {
         return;
     }
 
-    /*
-      Do not override arrows inside the search box, select menus
-      or native video controls.
-    */
     const isNativeControl =
         active === searchInput ||
         active === playbackSpeed ||
@@ -554,10 +745,15 @@ document.addEventListener("keydown", event => {
 });
 
 document.addEventListener("fullscreenchange", () => {
-    fullscreenButton.textContent = document.fullscreenElement
-        ? "⛶ Exit fullscreen"
-        : "⛶ Fullscreen";
+    fullscreenButton.textContent =
+        document.fullscreenElement
+            ? "⛶ Exit fullscreen"
+            : "⛶ Fullscreen";
 });
 
-/* Initial render. */
+
+/* =========================================
+   INITIALIZE
+========================================= */
+
 renderLibrary();
