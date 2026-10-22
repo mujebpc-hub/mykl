@@ -1,8 +1,20 @@
 "use strict";
 
 /* =========================================
-   STUDYHUB CONFIGURATION
+   STUDYHUB - IMPROVED CONFIGURATION
 ========================================= */
+
+/*
+  PHOTO / PDF CONFIGURATION
+
+  Photos:
+  file: "photo.jpg"
+
+  PDF:
+  file: "notes.pdf"
+
+  Both files must be inside study/image/
+*/
 
 const photos = [
     {
@@ -10,15 +22,16 @@ const photos = [
         title: "Study Notes 03",
         subject: "Study Material"
     },
-   {
+    {
         file: "English 12 Tenses Hindi Guide.pdf",
-        title: "Study  03",
-        subject: "Study Material"
-   }
+        title: "English 12 Tenses Hindi Guide",
+        subject: "English",
+        description: "Hindi PDF Guide"
+    }
 ];
 
 /*
-  VIDEO OPTIONS
+  VIDEO CONFIGURATION
 
   Google Drive:
   driveLink: "https://drive.google.com/file/d/FILE_ID/view"
@@ -28,6 +41,12 @@ const photos = [
 
   GitHub video folder:
   study/videos/
+
+  Optional thumbnail:
+  thumbnail: "lesson-01.jpg"
+
+  IMPORTANT:
+  Replace the sample Drive link below with your real link.
 */
 
 const videos = [
@@ -70,9 +89,40 @@ const toast = document.getElementById("toast");
 
 let lastFocusedElement = null;
 let toastTimeout = null;
-let currentVideo = null;
 let playerError = false;
 let lastStatus = "Ready to play";
+let activeVideoType = null;
+
+
+/* =========================================
+   INITIAL HTML CHECK
+========================================= */
+
+const requiredElements = [
+    gallery,
+    videoGrid,
+    photoCount,
+    photoCountLabel,
+    videoCount,
+    searchInput,
+    playerModal,
+    videoPlayer,
+    playerTitle,
+    playerSubject,
+    playbackSpeed,
+    fullscreenButton,
+    closePlayerButton,
+    playbackStatus,
+    videoStage,
+    toast
+];
+
+if (requiredElements.some(element => !element)) {
+    console.error(
+        "StudyHub: One or more required HTML elements are missing. " +
+        "Check the element IDs in index.html."
+    );
+}
 
 
 /* =========================================
@@ -80,11 +130,36 @@ let lastStatus = "Ready to play";
 ========================================= */
 
 function mediaURL(folder, filename) {
-    return folder +
-        filename.split("/").map(encodeURIComponent).join("/");
+    if (!filename || typeof filename !== "string") {
+        return "";
+    }
+
+    const safePath = filename
+        .replace(/\\/g, "/")
+        .split("/")
+        .filter(part => part && part !== "." && part !== "..")
+        .map(part => encodeURIComponent(part))
+        .join("/");
+
+    if (!safePath) {
+        return "";
+    }
+
+    return folder + safePath;
 }
 
+
+function isPDF(file) {
+    return /\.pdf$/i.test(file || "");
+}
+
+
 function showToast(message) {
+    if (!toast) {
+        console.warn("StudyHub:", message);
+        return;
+    }
+
     toast.textContent = message;
     toast.classList.add("visible");
 
@@ -92,8 +167,9 @@ function showToast(message) {
 
     toastTimeout = setTimeout(() => {
         toast.classList.remove("visible");
-    }, 3000);
+    }, 3500);
 }
+
 
 function createElement(tag, className, text) {
     const element = document.createElement(tag);
@@ -109,6 +185,7 @@ function createElement(tag, className, text) {
     return element;
 }
 
+
 function createEmptyState(icon, heading, description) {
     const state = createElement("div", "empty-state");
 
@@ -122,24 +199,58 @@ function createEmptyState(icon, heading, description) {
 }
 
 
+function normalizeText(value) {
+    return String(value || "").trim().toLowerCase();
+}
+
+
+function getSearchText(item) {
+    return [
+        item.title,
+        item.subject,
+        item.description,
+        item.file
+    ].map(normalizeText).join(" ");
+}
+
+
+function safeOpen(url) {
+    if (!url) {
+        showToast("File path is missing.");
+        return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+}
+
+
 /* =========================================
-   GOOGLE DRIVE LINK CONVERSION
+   GOOGLE DRIVE LINK HANDLING
 ========================================= */
 
 function getDrivePreviewUrl(link) {
+    if (typeof link !== "string" || !link.trim()) {
+        return "";
+    }
+
     try {
-        const url = new URL(link);
+        const url = new URL(link.trim());
 
         if (
-            url.hostname !== "drive.google.com" &&
-            url.hostname !== "www.drive.google.com"
+            url.protocol !== "https:" ||
+            ![
+                "drive.google.com",
+                "www.drive.google.com"
+            ].includes(url.hostname.toLowerCase())
         ) {
             return "";
         }
 
         let fileId = "";
 
-        const match = url.pathname.match(/\/file\/d\/([^/]+)/);
+        const match = url.pathname.match(
+            /\/file\/d\/([^/]+)/
+        );
 
         if (match) {
             fileId = match[1];
@@ -147,7 +258,12 @@ function getDrivePreviewUrl(link) {
             fileId = url.searchParams.get("id") || "";
         }
 
-        if (!fileId) {
+        // Reject placeholders and suspicious IDs.
+        if (
+            !fileId ||
+            /PASTE_FILE_ID_HERE|YOUR_FILE_ID/i.test(fileId) ||
+            !/^[a-zA-Z0-9_-]+$/.test(fileId)
+        ) {
             return "";
         }
 
@@ -157,35 +273,52 @@ function getDrivePreviewUrl(link) {
             "/preview"
         );
 
-    } catch {
+    } catch (error) {
         return "";
     }
 }
 
 
+function isDriveVideo(video) {
+    return Boolean(
+        video &&
+        getDrivePreviewUrl(video.driveLink)
+    );
+}
+
+
+function isGitHubVideo(video) {
+    return Boolean(
+        video &&
+        typeof video.file === "string" &&
+        /\.mp4$/i.test(video.file)
+    );
+}
+
+
 /* =========================================
-   MEDIA CARDS
+   MEDIA CARD CREATION
 ========================================= */
 
-function createMediaCard({
-    type,
-    title,
-    subject,
-    description,
-    file,
-    thumbnail
-}) {
+function createMediaCard(options) {
+    const {
+        type,
+        title,
+        subject,
+        description,
+        file,
+        thumbnail
+    } = options;
+
     const card = createElement("button", "media-card");
 
     card.type = "button";
 
-    card.dataset.search = [
-        title,
-        subject || "",
-        description || ""
-    ].join(" ").toLowerCase();
+    card.dataset.search = getSearchText(options);
 
     const artwork = createElement("div", "media-artwork");
+
+    /* ---------- VIDEO THUMBNAIL ---------- */
 
     if (type === "video" && thumbnail) {
         const image = document.createElement("img");
@@ -200,44 +333,66 @@ function createMediaCard({
         });
 
         artwork.appendChild(image);
+    }
 
-    } else if (type === "photo") {
-        const image = document.createElement("img");
+    /* ---------- PHOTO / PDF ARTWORK ---------- */
 
-        image.src = mediaURL(IMAGE_FOLDER, file);
-        image.alt = title;
-        image.loading = "lazy";
+    if (type === "photo") {
+        const pdf = isPDF(file);
 
-        image.addEventListener("error", () => {
-            image.style.display = "none";
+        if (pdf) {
+            artwork.classList.add("pdf-artwork");
 
             artwork.appendChild(
-                createElement("span", "artwork-symbol", "▧")
+                createElement("span", "artwork-symbol", "PDF")
             );
-        });
 
-        artwork.appendChild(image);
+            artwork.appendChild(
+                createElement("span", "media-type", "PDF DOCUMENT")
+            );
+
+        } else {
+            artwork.classList.add("photo-artwork");
+
+            const image = document.createElement("img");
+
+            image.src = mediaURL(IMAGE_FOLDER, file);
+            image.alt = title || "Study image";
+            image.loading = "lazy";
+
+            image.addEventListener("error", () => {
+                image.remove();
+
+                if (!artwork.querySelector(".artwork-symbol")) {
+                    artwork.appendChild(
+                        createElement("span", "artwork-symbol", "▧")
+                    );
+                }
+
+                artwork.classList.add("artwork-fallback");
+            });
+
+            artwork.appendChild(image);
+        }
     }
+
+    /* ---------- VIDEO ARTWORK ---------- */
 
     if (type === "video") {
         artwork.classList.add("video-artwork");
 
-        artwork.appendChild(
-            createElement("span", "artwork-play", "▶")
-        );
-
-        artwork.appendChild(
+        artwork.append(
+            createElement("span", "artwork-play", "▶"),
             createElement("span", "media-type", "VIDEO")
         );
-
-    } else {
-        artwork.classList.add("photo-artwork");
     }
+
+    /* ---------- CARD INFORMATION ---------- */
 
     const info = createElement("div", "media-info");
 
     info.append(
-        createElement("h3", "media-title", title),
+        createElement("h3", "media-title", title || "Untitled"),
         createElement(
             "p",
             "media-subject",
@@ -253,24 +408,28 @@ function createMediaCard({
 
     card.append(artwork, info);
 
+    /* ---------- CARD ACTIONS ---------- */
+
     if (type === "video") {
-        card.setAttribute("aria-label", "Play " + title);
+        card.setAttribute(
+            "aria-label",
+            "Play video " + (title || "")
+        );
 
         card.addEventListener("click", () => {
-            openPlayer({
-                ...arguments[0]
-            });
+            openPlayer(options);
         });
 
     } else {
-        card.setAttribute("aria-label", "Open photo " + title);
+        const pdf = isPDF(file);
+
+        card.setAttribute(
+            "aria-label",
+            (pdf ? "Open PDF " : "Open photo ") + (title || "")
+        );
 
         card.addEventListener("click", () => {
-            window.open(
-                mediaURL(IMAGE_FOLDER, file),
-                "_blank",
-                "noopener"
-            );
+            safeOpen(mediaURL(IMAGE_FOLDER, file));
         });
     }
 
@@ -286,13 +445,7 @@ function renderVideos(query = "") {
     videoGrid.innerHTML = "";
 
     const filtered = videos.filter(video => {
-        const text = [
-            video.title,
-            video.subject || "",
-            video.description || ""
-        ].join(" ").toLowerCase();
-
-        return text.includes(query);
+        return getSearchText(video).includes(query);
     });
 
     videoCount.textContent = filtered.length;
@@ -306,7 +459,7 @@ function renderVideos(query = "") {
                     : "Your video library is ready",
                 videos.length
                     ? "Try another search term."
-                    : "Add Google Drive links in the videos array in script.js."
+                    : "Add your Google Drive links or MP4 files in script.js."
             )
         );
 
@@ -325,51 +478,83 @@ function renderVideos(query = "") {
 
 
 /* =========================================
-   RENDER PHOTO GALLERY
+   RENDER PHOTO AND PDF LIBRARY
 ========================================= */
 
 function renderPhotos(query = "") {
     gallery.innerHTML = "";
 
     const filtered = photos.filter(photo => {
-        const text = [
-            photo.title,
-            photo.subject || ""
-        ].join(" ").toLowerCase();
-
-        return text.includes(query);
+        return getSearchText(photo).includes(query);
     });
 
     photoCount.textContent = filtered.length;
-    photoCountLabel.textContent = `${filtered.length} photos`;
+
+    const pdfCount = filtered.filter(
+        item => isPDF(item.file)
+    ).length;
+
+    const imageCount = filtered.length - pdfCount;
+
+    if (photoCountLabel) {
+        photoCountLabel.textContent =
+            imageCount + " photos · " + pdfCount + " PDFs";
+    }
 
     if (filtered.length === 0) {
         gallery.appendChild(
             createEmptyState(
                 "▧",
-                "No matching photos",
-                "Try another search term."
+                "No matching study resources",
+                "Try a different title, subject, or search term."
             )
         );
 
         return;
     }
 
-    filtered.forEach(photo => {
+    filtered.forEach(item => {
         gallery.appendChild(
             createMediaCard({
-                ...photo,
+                ...item,
                 type: "photo"
             })
         );
     });
 }
 
+
+/* =========================================
+   SEARCH AND LIBRARY
+========================================= */
+
 function renderLibrary() {
-    const query = searchInput.value.trim().toLowerCase();
+    const query = normalizeText(searchInput.value);
 
     renderVideos(query);
     renderPhotos(query);
+}
+
+
+/* =========================================
+   STOP AND RESET VIDEO PLAYER
+========================================= */
+
+function resetVideoPlayer() {
+    videoPlayer.pause();
+
+    videoPlayer.removeAttribute("src");
+    videoPlayer.load();
+
+    const oldFrame = videoStage.querySelector(".drive-player");
+
+    if (oldFrame) {
+        oldFrame.src = "about:blank";
+        oldFrame.remove();
+    }
+
+    videoPlayer.hidden = false;
+    activeVideoType = null;
 }
 
 
@@ -378,46 +563,48 @@ function renderLibrary() {
 ========================================= */
 
 function openPlayer(video) {
+    if (!video || !playerModal) {
+        showToast("Unable to open this video.");
+        return;
+    }
+
     const driveUrl = getDrivePreviewUrl(video.driveLink || "");
 
-    if (!driveUrl && !video.file) {
-        showToast("Invalid Google Drive link or missing video file.");
+    const githubUrl = isGitHubVideo(video)
+        ? mediaURL(VIDEO_FOLDER, video.file)
+        : "";
+
+    if (!driveUrl && !githubUrl) {
+        showToast(
+            "Invalid video link. Add a valid Google Drive link or MP4 file."
+        );
         return;
     }
 
     lastFocusedElement = document.activeElement;
-    currentVideo = video;
     playerError = false;
     lastStatus = "Loading video...";
 
-    playerTitle.textContent = video.title;
+    playerTitle.textContent = video.title || "Study Video";
     playerSubject.textContent = video.subject || "Study Material";
     playbackStatus.textContent = lastStatus;
 
-    // Stop and reset the previous video.
-    videoPlayer.pause();
-    videoPlayer.removeAttribute("src");
-    videoPlayer.load();
-
-    // Remove any previously opened Google Drive player.
-    const oldFrame = videoStage.querySelector(".drive-player");
-
-    if (oldFrame) {
-        oldFrame.remove();
-    }
+    resetVideoPlayer();
 
     playerModal.hidden = false;
     document.body.classList.add("player-open");
 
     if (driveUrl) {
-        // Google Drive requires its embedded preview player.
+        /* ---------- GOOGLE DRIVE PLAYER ---------- */
+
+        activeVideoType = "drive";
         videoPlayer.hidden = true;
 
         const frame = document.createElement("iframe");
 
         frame.className = "drive-player";
         frame.src = driveUrl;
-        frame.title = video.title;
+        frame.title = video.title || "Google Drive video player";
 
         frame.allow =
             "autoplay; fullscreen; picture-in-picture";
@@ -427,29 +614,42 @@ function openPlayer(video) {
         frame.referrerPolicy =
             "strict-origin-when-cross-origin";
 
-        frame.style.width = "100%";
-        frame.style.height = "100%";
-        frame.style.border = "0";
+        frame.setAttribute(
+            "allow",
+            "autoplay; fullscreen; picture-in-picture"
+        );
 
         videoStage.appendChild(frame);
 
         playbackStatus.textContent =
-            "Google Drive player ready. Press Play inside the video.";
+            "Drive player ready. Press Play inside the video.";
 
     } else {
-        // Local GitHub-hosted video.
+        /* ---------- GITHUB MP4 PLAYER ---------- */
+
+        activeVideoType = "github";
         videoPlayer.hidden = false;
 
-        videoPlayer.src = mediaURL(VIDEO_FOLDER, video.file);
+        videoPlayer.src = githubUrl;
 
         videoPlayer.playbackRate =
             Number(playbackSpeed.value) || 1;
 
         videoPlayer.load();
 
-        videoPlayer.play().catch(() => {
-            playbackStatus.textContent = "Press Play to start";
-        });
+        playbackStatus.textContent = "Loading video...";
+
+        // Attempt autoplay; some browsers require a user action.
+        const playPromise = videoPlayer.play();
+
+        if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {
+                if (!playerModal.hidden && activeVideoType === "github") {
+                    playbackStatus.textContent =
+                        "Press Play to start the video.";
+                }
+            });
+        }
     }
 
     closePlayerButton.focus();
@@ -465,24 +665,13 @@ function closePlayer() {
         return;
     }
 
-    videoPlayer.pause();
-    videoPlayer.removeAttribute("src");
-    videoPlayer.load();
-
-    const driveFrame = videoStage.querySelector(".drive-player");
-
-    if (driveFrame) {
-        driveFrame.src = "about:blank";
-        driveFrame.remove();
-    }
-
-    videoPlayer.hidden = false;
+    resetVideoPlayer();
 
     playerModal.hidden = true;
     document.body.classList.remove("player-open");
 
-    currentVideo = null;
     playerError = false;
+    lastStatus = "Ready to play";
 
     if (
         lastFocusedElement &&
@@ -490,6 +679,8 @@ function closePlayer() {
     ) {
         lastFocusedElement.focus();
     }
+
+    lastFocusedElement = null;
 }
 
 
@@ -498,8 +689,13 @@ function closePlayer() {
 ========================================= */
 
 function updatePlaybackStatus() {
+    if (playerModal.hidden || activeVideoType !== "github") {
+        return;
+    }
+
     if (playerError) {
-        playbackStatus.textContent = "Video could not be played";
+        playbackStatus.textContent =
+            "Video could not be played. Check its path and format.";
 
     } else if (videoPlayer.ended) {
         playbackStatus.textContent = "Playback finished";
@@ -520,49 +716,40 @@ function updatePlaybackStatus() {
    FULLSCREEN
 ========================================= */
 
-function toggleFullscreen() {
+async function toggleFullscreen() {
     if (playerModal.hidden) {
         return;
     }
 
     const frame = videoStage.querySelector(".drive-player");
 
-    // Drive has its own player controls.
-    // Its iframe has allowFullscreen enabled.
-    if (frame) {
-        if (frame.requestFullscreen) {
-            frame.requestFullscreen().catch(() => {
-                showToast(
-                    "Use the Google Drive player fullscreen button."
-                );
-            });
-        } else {
-            showToast(
-                "Use the fullscreen control inside the Drive player."
-            );
+    try {
+        if (document.fullscreenElement) {
+            await document.exitFullscreen();
+            return;
         }
 
-        return;
-    }
+        if (frame && frame.requestFullscreen) {
+            await frame.requestFullscreen();
+            return;
+        }
 
-    if (document.fullscreenElement) {
-        document.exitFullscreen?.().catch(() => {
-            showToast("Use your TV remote to exit fullscreen.");
-        });
+        if (videoStage.requestFullscreen) {
+            await videoStage.requestFullscreen();
+            return;
+        }
 
-        return;
-    }
+        if (videoPlayer.webkitEnterFullscreen) {
+            videoPlayer.webkitEnterFullscreen();
+            return;
+        }
 
-    if (videoStage.requestFullscreen) {
-        videoStage.requestFullscreen().catch(() => {
-            showToast("Fullscreen is not supported by this browser.");
-        });
-
-    } else if (videoPlayer.webkitEnterFullscreen) {
-        videoPlayer.webkitEnterFullscreen();
-
-    } else {
         showToast("Fullscreen is not supported by this browser.");
+
+    } catch (error) {
+        showToast(
+            "Use the fullscreen button inside the video player if available."
+        );
     }
 }
 
@@ -571,18 +758,33 @@ function toggleFullscreen() {
    TV REMOTE NAVIGATION
 ========================================= */
 
-function moveFocus(direction) {
-    const candidates = Array.from(
-        document.querySelectorAll(
-            'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), video[tabindex="0"]'
-        )
+function getFocusableElements() {
+    const selector = [
+        "a[href]",
+        "button:not(:disabled)",
+        "input:not(:disabled)",
+        "select:not(:disabled)",
+        "textarea:not(:disabled)",
+        '[tabindex]:not([tabindex="-1"])'
+    ].join(",");
+
+    return Array.from(
+        document.querySelectorAll(selector)
     ).filter(element => {
         return (
             element.getClientRects().length > 0 &&
             !element.closest("[hidden]") &&
-            element !== document.activeElement
+            !element.closest("[inert]") &&
+            element.getAttribute("aria-hidden") !== "true"
         );
     });
+}
+
+
+function moveFocus(direction) {
+    const candidates = getFocusableElements().filter(
+        element => element !== document.activeElement
+    );
 
     const active = document.activeElement;
 
@@ -655,110 +857,5 @@ closePlayerButton.addEventListener("click", closePlayer);
 
 fullscreenButton.addEventListener("click", toggleFullscreen);
 
-playbackSpeed.addEventListener("change", () => {
-    videoPlayer.playbackRate =
-        Number(playbackSpeed.value) || 1;
-});
 
-videoPlayer.addEventListener("playing", () => {
-    lastStatus = "Now playing";
-    updatePlaybackStatus();
-});
-
-videoPlayer.addEventListener("pause", updatePlaybackStatus);
-
-videoPlayer.addEventListener("ended", updatePlaybackStatus);
-
-videoPlayer.addEventListener("waiting", () => {
-    if (!playerError) {
-        playbackStatus.textContent = "Buffering...";
-    }
-});
-
-videoPlayer.addEventListener("error", () => {
-    playerError = true;
-
-    playbackStatus.textContent =
-        "Cannot play this video. Check its path and format.";
-});
-
-videoPlayer.addEventListener("loadedmetadata", () => {
-    playerError = false;
-    lastStatus = "Ready to play";
-    updatePlaybackStatus();
-});
-
-playerModal.addEventListener("click", event => {
-    if (event.target === playerModal) {
-        closePlayer();
-    }
-});
-
-document.addEventListener("keydown", event => {
-    const isOpen = !playerModal.hidden;
-    const active = document.activeElement;
-
-    if (
-        event.key === "Escape" ||
-        event.key === "Backspace"
-    ) {
-        if (isOpen) {
-            event.preventDefault();
-            closePlayer();
-            return;
-        }
-    }
-
-    if (
-        isOpen &&
-        event.key === "MediaPlayPause" &&
-        !videoPlayer.hidden
-    ) {
-        event.preventDefault();
-
-        if (videoPlayer.paused) {
-            videoPlayer.play().catch(() => {});
-        } else {
-            videoPlayer.pause();
-        }
-
-        return;
-    }
-
-    const isNativeControl =
-        active === searchInput ||
-        active === playbackSpeed ||
-        active === videoPlayer;
-
-    if (isNativeControl) {
-        return;
-    }
-
-    const directionMap = {
-        ArrowUp: "up",
-        ArrowDown: "down",
-        ArrowLeft: "left",
-        ArrowRight: "right"
-    };
-
-    const direction = directionMap[event.key];
-
-    if (direction) {
-        event.preventDefault();
-        moveFocus(direction);
-    }
-});
-
-document.addEventListener("fullscreenchange", () => {
-    fullscreenButton.textContent =
-        document.fullscreenElement
-            ? "⛶ Exit fullscreen"
-            : "⛶ Fullscreen";
-});
-
-
-/* =========================================
-   INITIALIZE
-========================================= */
-
-renderLibrary();
+/* ---------- PLAYBACK SPEED ---------- 
