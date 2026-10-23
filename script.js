@@ -10,6 +10,11 @@ file: "IMG_20261015_203337.jpg",
 title: "Study Notes 03",
 subject: "Study Material"
 },
+ {
+file: "Class_7_English_Paper.docx",
+title: "Study kk 03",
+subject: "Study "
+},
 {
 file: "English 12 Tenses Hindi Guide.pdf",
 title: "Study  03",
